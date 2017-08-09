@@ -13,8 +13,8 @@ b=img(:,:,3);
 mask = and(g>245,r<230,b<230);
 
 g(mask)=254;
-r(mask)=0;
-b(mask)=0;
+r(mask)=254;
+b(mask)=254;
 g(!mask)=0;
 r(!mask)=0;
 b(!mask)=0;
