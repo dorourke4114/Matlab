@@ -64,10 +64,9 @@ circle_size = [5,100];
           %error, no points found
         else
           [a,b]=size(centers);
-          switch a
-            case 1
+          if a == 1
               %error only 1 point found
-            case 2
+          elseif a == 2
               point1=[point1;centers(1,:)];
               point2=[point2;centers(2,:)];
             
@@ -75,6 +74,6 @@ circle_size = [5,100];
         end
     end
   
-  
+  out = {point1,point2};
   
 end
