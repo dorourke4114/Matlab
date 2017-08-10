@@ -8,21 +8,22 @@ function [ out ] = VideoAnalysis ( in )
 % This function reads in image or video data and finds
 % red and green spots, and tracks their movement.
 %
-%
+% SR-523 orientation and translation error
+% SR-522 delay
 %
 %% Variables
 
-green_limit = 245;
-red_limit   = 245;
+red_limit   = 255;
 dark_limit  = 230;
 
-circle_size = [1,5];
+circle_size = [5,50];
 
 
-  
+%% Input Sterilization
+
   if nargin < 1
     %Query for directory or file.
-    in = input('Please provide file or directory', 's');
+    in = input('Please provide file:\n', 's');
   end
   
   %Determine if file or directory
@@ -40,18 +41,39 @@ circle_size = [1,5];
     %input is a filename
     
     v = VideoReader(in);
-    point1=[];
-    point2=[];
+    total_frames=ceil(v.Duration.*v.FrameRate);
+    points=cell(total_frames,2);
     framenumber=0;
+    
     while hasFrame(v)
         framenumber=framenumber+1;
-        sprintf('Processing frame %d',framenumber);
+        fprintf('Processing frame %d of %d\n',framenumber, total_frames);
         %get frame
         img = readFrame(v);
-        %split image
+        
+        
+        %% Do the image processing
+        
+        point = findcirclepoints (img, red_limit, dark_limit, circle_size);
+        
+        points(framenumber,1)=point(1);
+        points(framenumber,2)=point(2);
+        
+    end
+  
+  end
+out=[point];
+end
+
+%% Sub functions
+
+%% Find Circle Points
+function point = findcirclepoints (img, red_limit, dark_limit, circle_size)
+% Find circle points 
+
+
+ %split image
         r=img(:,:,1);g=img(:,:,2);b=img(:,:,3);
-        %find green
-        gmask = g>green_limit & r<dark_limit & b<dark_limit;
         %find red
         rmask = g<dark_limit & r>red_limit & b<dark_limit;
         %set red and green to white
@@ -62,22 +84,20 @@ circle_size = [1,5];
         %make all not red or green black
         g(~lmask)=0;r(~lmask)=0;b(~lmask)=0;
         newimg=cat(3,r,g,b);
+        imshow(newimg);
         [centers,~,~]=imfindcircles(newimg,circle_size);
         if isempty(centers)
           %error, no points found
+          point={'MISSING'};
         else
           [a,~]=size(centers);
           switch a
             case 1
               %error only 1 point found
+              point={centers(1,:),'MISSING'};
             case 2
-              point1=[point1;centers(1,:)]; %#ok<*AGROW>
-              point2=[point2;centers(2,:)]; % Cannot preallocate video size
-            
+              point={centers(1,:),centers(2,:)};
           end
         end
-    end
-  
-  end
-out={point1,point2};
+
 end
