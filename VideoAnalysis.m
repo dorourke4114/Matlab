@@ -90,8 +90,18 @@ frames_to_skip=100;
                 %find orientation angles
                 distances=diff(center);
                 distances(2,:)=[];
+                orientation=(360./(2.*pi)).*tan(distances(:,1)./distances(:,2));
+                orientations(framenumber)={orientation};
                 
-                %% FINISH MORE STUFF HERE
+                %Find trajectory
+                movement1=[point{2};lastpoint{2}];
+                movement2=[point{4};lastpoint{4}];
+                move1=diff(movement1);
+                traj1=(360./(2.*pi)).*tan(move1(1)./move1(2));
+                move2=diff(movement2);
+                traj2=(360./(2.*pi)).*tan(move2(1)./move2(2));
+                
+                trajectories(framenumber)={traj1,traj2};
                 
             end
         end
