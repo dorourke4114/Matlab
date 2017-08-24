@@ -13,18 +13,40 @@ function [ out ] = VideoAnalysis ( in , varargin )
 %
 %% Variables
 
-red_limit   = 255;
-dark_limit  = 230;
+red_limit   = 200;
+dark_limit  = 150;
 
-circle_size = [15,35];
+circle_size = [5,35];
 
-frames_to_skip=100;
+frames_to_skip=0;
 
 %% Input Sterilization
 
   if nargin < 1
     %Query for directory or file.
     in = input('Please provide file:\n', 's');
+  end
+  
+  % Check Varargin
+  
+  if nargin > 1
+      for ins = 1:length(varargin)
+          switch varargin(ins)
+              case 'skip frames'
+                  frames_to_skip = varargin(ins+1);
+              
+              case 'circle size'
+                  circle_size = varargin(ins+1);
+              
+              case 'red limit'
+                  red_limit = varargin(ins+1);
+              
+              case 'dark limit'
+                  dark_limit = varargin(ins+1);
+                  
+              %Add more cases as needed
+          end
+      end
   end
   
   %Determine if file or directory
@@ -37,10 +59,22 @@ frames_to_skip=100;
       
     else
       %error, invalid directory
+      error('Error: Invalid directory or file');
     end
   else
     %input is a filename
-    
+    dataout = videoread(in,frames_to_skip,red_limit,dark_limit,circle_size);
+  
+  end
+out = dataout;
+end
+
+%% Sub functions
+
+%% Video reader
+function out = videoread(in,frames_to_skip,red_limit,dark_limit,circle_size)
+
+
     v = VideoReader(in);
     total_frames=ceil(v.Duration.*v.FrameRate./(frames_to_skip+1))-1;
     
@@ -66,58 +100,70 @@ frames_to_skip=100;
         %% Do the image processing
         
         point = findcirclepoints (img, red_limit, dark_limit, circle_size);
-        
+        toomany=strcmpi(point,'TOO MANY POINTS');
         missing=strcmpi(point,'MISSING');
         points(framenumber,1:4)={'MISSING'};
-        if any(~missing)
-            %If any points are found
-            for ndx = 1:4-sum(missing)
-                points(framenumber,ndx)=point(ndx);
-            end
-            if any(missing)
-                %if any points are missing
-                
-            else
-                %if all 4 points are found
-                
-                %make array of current points
-                center=[point{1};point{2};point{3};point{4}];
-                
-                %make array of last point
-                lastpoint=points(framenumber-1,:);
-                lastcenter=[lastpoint{1};lastpoint{2};lastpoint{3};lastpoint{4}];
-                
-                %find orientation angles
-                distances=diff(center);
-                distances(2,:)=[];
-                orientation=(360./(2.*pi)).*tan(distances(:,1)./distances(:,2));
-                orientations(framenumber)={orientation};
-                
-                %Find trajectory
-                movement1=[point{2};lastpoint{2}];
-                movement2=[point{4};lastpoint{4}];
-                move1=diff(movement1);
-                traj1=(360./(2.*pi)).*tan(move1(1)./move1(2));
-                move2=diff(movement2);
-                traj2=(360./(2.*pi)).*tan(move2(1)./move2(2));
-                
-                trajectories(framenumber)={traj1,traj2};
-                
+        orientations(framenumber,1:2)={'MISSING'};
+        if toomany
+            points(framenumber,1:4)={'TOO MANY POINTS'};
+            orientations(framenumber)={'TOO MANY POINTS'};
+            trajectories{framenumber}='TOO MANY POINTS';
+        else
+            if any(~missing)
+                %If any points are found
+                for ndx = 1:4-sum(missing)
+                    points(framenumber,ndx)=point(ndx);
+                end
+                if any(missing)
+                    %if any points are missing
+
+                else
+                    %if all 4 points are found
+
+                    %make array of current points
+                    center=[point{1};point{2};point{3};point{4}];
+
+                    %find orientation angles
+                    distances=diff(center);
+                    distances(2,:)=[];
+                    orientation=(360./(2.*pi)).*tan(distances(:,1)./distances(:,2));
+                    
+                    orientations(framenumber,1)={orientation(1)};
+                    orientations(framenumber,2)={orientation(2)};
+
+
+                    if framenumber>1
+
+                            %make array of last point
+                            lastpoint=points(framenumber-1,:);
+
+                            %Find trajectory
+                            movement1=[point{2};lastpoint{2}];
+                            movement2=[point{4};lastpoint{4}];
+                            move1=diff(movement1);
+                            traj1=(360./(2.*pi)).*tan(move1(1)./move1(2));
+                            move2=diff(movement2);
+                            traj2=(360./(2.*pi)).*tan(move2(1)./move2(2));
+
+                            trajectories{framenumber}=[traj1,traj2];
+
+                    else
+
+                            trajectories{framenumber} = 'MISSING';
+
+                    end
+                end
             end
         end
-        
     end
-  
-  end
-out = points;
+    out = {points, orientations, trajectorie};
 end
-
-%% Sub functions
-
 %% Find Circle Points
 function point = findcirclepoints (img, red_limit, dark_limit, circle_size)
 % Find circle points 
 
+%Temp crop
+img = img(100:end,:,:);
 
  %split image
         r=img(:,:,1);g=img(:,:,2);b=img(:,:,3);
@@ -173,6 +219,9 @@ function point = findcirclepoints (img, red_limit, dark_limit, circle_size)
                   point={centers(1,:),centers(2,:),centers(3,:),centers(4,:)};
                   %point = [ top 2 points (leftmost, rightmost) ,
                   %         bottom 2 points (leftmost, rightmost) ]
+                  
+              otherwise
+                  point={'TOO MANY POINTS'};
                   
           end
         end
