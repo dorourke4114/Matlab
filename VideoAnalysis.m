@@ -31,18 +31,19 @@ frames_to_skip=0;
   
   if nargin > 1
       for ins = 1:length(varargin)
-          switch varargin(ins)
+          theswitch=varargin{ins};
+          switch theswitch
               case 'skip frames'
-                  frames_to_skip = varargin(ins+1);
+                  frames_to_skip = varargin{ins+1};
               
               case 'circle size'
-                  circle_size = varargin(ins+1);
+                  circle_size = varargin{ins+1};
               
               case 'red limit'
-                  red_limit = varargin(ins+1);
+                  red_limit = varargin{ins+1};
               
               case 'dark limit'
-                  dark_limit = varargin(ins+1);
+                  dark_limit = varargin{ins+1};
                   
               %Add more cases as needed
           end
@@ -79,8 +80,8 @@ function out = videoread(in,frames_to_skip,red_limit,dark_limit,circle_size)
     total_frames=ceil(v.Duration.*v.FrameRate./(frames_to_skip+1))-1;
     
     points=cell(total_frames,2);
-    orientations=cell(total_frames,2);
-    trajectories=cell(total_frames-1,2);
+    orientations=cell(total_frames,1);
+    trajectories=cell(total_frames-1,1);
     
     framenumber=0;
     
@@ -103,7 +104,7 @@ function out = videoread(in,frames_to_skip,red_limit,dark_limit,circle_size)
         toomany=strcmpi(point,'TOO MANY POINTS');
         missing=strcmpi(point,'MISSING');
         points(framenumber,1:4)={'MISSING'};
-        orientations(framenumber,1:2)={'MISSING'};
+        orientations(framenumber,1)={'MISSING'};
         if toomany
             points(framenumber,1:4)={'TOO MANY POINTS'};
             orientations(framenumber)={'TOO MANY POINTS'};
@@ -128,15 +129,19 @@ function out = videoread(in,frames_to_skip,red_limit,dark_limit,circle_size)
                     distances(2,:)=[];
                     orientation=(360./(2.*pi)).*tan(distances(:,1)./distances(:,2));
                     
-                    orientations(framenumber,1)={orientation(1)};
-                    orientations(framenumber,2)={orientation(2)};
+                    orientations(framenumber)={orientation(1:2)};
 
 
                     if framenumber>1
-
-                            %make array of last point
-                            lastpoint=points(framenumber-1,:);
-
+                        %make array of last point
+                        lastpoint=points(framenumber-1,:);
+                        if any(strcmpi(lastpoint,'MISSING'))
+                            %skip traj
+                            trajectories{framenumber} = 'MISSING';
+                        elseif any(strcmpi(lastpoint,'TOO MANY POINTS'))
+                            %skip traj
+                            trajectories{framenumber} = 'TOO MANY POINTS';
+                        else
                             %Find trajectory
                             movement1=[point{2};lastpoint{2}];
                             movement2=[point{4};lastpoint{4}];
@@ -146,7 +151,7 @@ function out = videoread(in,frames_to_skip,red_limit,dark_limit,circle_size)
                             traj2=(360./(2.*pi)).*tan(move2(1)./move2(2));
 
                             trajectories{framenumber}=[traj1,traj2];
-
+                        end
                     else
 
                             trajectories{framenumber} = 'MISSING';
@@ -156,7 +161,7 @@ function out = videoread(in,frames_to_skip,red_limit,dark_limit,circle_size)
             end
         end
     end
-    out = {points, orientations, trajectorie};
+    out = {points, orientations, trajectories};
 end
 %% Find Circle Points
 function point = findcirclepoints (img, red_limit, dark_limit, circle_size)
@@ -214,7 +219,7 @@ img = img(100:end,:,:);
                   [~,locia]=sort(centers(1:2,2));
                   [~,locib]=sort(centers(3:4,2));
                   centers(1:2,:)=centers(locia,:);
-                  centers(3:4,:)=centers(locib,:);
+                  centers(3:4,:)=centers(locib+2,:);
                   
                   point={centers(1,:),centers(2,:),centers(3,:),centers(4,:)};
                   %point = [ top 2 points (leftmost, rightmost) ,
