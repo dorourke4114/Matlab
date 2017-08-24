@@ -8,30 +8,23 @@ function [ out ] = VideoAnalysis ( in , varargin )
 % This function reads in image or video data and finds
 % red and green spots, and tracks their movement.
 %
-%
+% SR-523 orientation and translation error
+% SR-522 delay
 %
 %% Variables
 
-<<<<<<< HEAD
-green_limit = 245;
-red_limit   = 245;
-dark_limit  = 230;
-
-circle_size = [5,100];
-=======
 red_limit   = 200;
 dark_limit  = 150;
 
 circle_size = [5,35];
 
 frames_to_skip=0;
->>>>>>> 1d0f68a1aa5fa2ea5a3fb7fd507f8ceb4a241811
 
+%% Input Sterilization
 
-  
   if nargin < 1
     %Query for directory or file.
-    in = input('Please provide file or directory', 's');
+    in = input('Please provide file:\n', 's');
   end
   
   % Check Varargin
@@ -57,7 +50,7 @@ frames_to_skip=0;
   end
   
   %Determine if file or directory
-  [a,b]=strtok(in,'.');
+  [~,b]=strtok(in,'.');
   
   if isempty(b)
     %input might be a directory
@@ -66,11 +59,8 @@ frames_to_skip=0;
       
     else
       %error, invalid directory
-<<<<<<< HEAD
-=======
       error('Error: Invalid directory or file');
     end
->>>>>>> 1d0f68a1aa5fa2ea5a3fb7fd507f8ceb4a241811
   else
     %input is a filename
     dataout = videoread(in,frames_to_skip,red_limit,dark_limit,circle_size);
@@ -86,15 +76,6 @@ function out = videoread(in,frames_to_skip,red_limit,dark_limit,circle_size)
 
 
     v = VideoReader(in);
-<<<<<<< HEAD
-    point1=[];
-    point2=[];
-    
-    while hasFrame(v)
-        %get frame
-        img = readFrame(v);
-        %split image
-=======
     total_frames=ceil(v.Duration.*v.FrameRate./(frames_to_skip+1))-1;
     
     points=cell(total_frames,2);
@@ -185,41 +166,21 @@ function point = findcirclepoints (img, red_limit, dark_limit, circle_size)
 img = img(100:end,:,:);
 
  %split image
->>>>>>> 1d0f68a1aa5fa2ea5a3fb7fd507f8ceb4a241811
         r=img(:,:,1);g=img(:,:,2);b=img(:,:,3);
-        %find green
-        gmask = and(g>green_limit,r<dark_limit,b<dark_limit);
         %find red
-        rmask = and(g<dark_limit,r>red_limit,b<dark_limit);
+        rmask = g<dark_limit & r>red_limit & b<dark_limit;
         %set red and green to white
         g(rmask)=254;r(rmask)=254;b(rmask)=254;
-<<<<<<< HEAD
-        %sum red and green
-        lmask=gmask+rmask;
-        %make all not red or green black
-        g(!lmask)=0;r(!lmask)=0;b(!lmask)=0;
-        newimg=cat(3,r,g,b);
-        [centers,radii,metric]=imfindcircles(newimg,circle_size);
-=======
         %make all not red black
         g(~rmask)=0;r(~rmask)=0;b(~rmask)=0;
         newimg=r./3+g./3+b./3;
         BW=imbinarize(newimg);
         BW=edge(BW,'canny');
         [centers,~,~]=imfindcircles(BW,circle_size);
->>>>>>> 1d0f68a1aa5fa2ea5a3fb7fd507f8ceb4a241811
         if isempty(centers)
           %error, no points found
+          point={'MISSING'};
         else
-<<<<<<< HEAD
-          [a,b]=size(centers);
-          if a == 1
-              %error only 1 point found
-          elseif a == 2
-              point1=[point1;centers(1,:)];
-              point2=[point2;centers(2,:)];
-            
-=======
           [a,~]=size(centers);
           switch a
               case 1
@@ -262,11 +223,7 @@ img = img(100:end,:,:);
               otherwise
                   point={'TOO MANY POINTS'};
                   
->>>>>>> 1d0f68a1aa5fa2ea5a3fb7fd507f8ceb4a241811
           end
         end
-    end
-  
-  out = {point1,point2};
-  
+
 end
