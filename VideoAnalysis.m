@@ -1,16 +1,65 @@
 function [ out ] = VideoAnalysis ( in , varargin )
-%% Title Block
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % 
-% VideoAnalysis.m
+% Title: Video Analysis tool for processing visual ligth trackers
 %
 % Author: Daniel O'Rourke
 %
-% This function reads in image or video data and finds
-% red and green spots, and tracks their movement.
+% Description: This script accepts input as a string describing a directory
+% or file name. This tool is to be used to satisfy SR-523 orientation and 
+% translation error.
 %
-% SR-523 orientation and translation error
-% SR-522 delay
+% If no input is provided, the user will be prompted for a file or
+% directory. A variable amount of extra arguments may be provided, and will
+% be read in to replace default values for the following variables:
 %
+%       Input Name        |     Variable Replacement
+%      ---------------------------------------------
+%      'skip frames'      |       frames_to_skip
+%      'circle size'      |         circle_size
+%       'red limit'       |          red_limit
+%       'dark limit'      |          dark_limit
+%
+%
+% This script will search for red circles in each frame of a video,
+% identifying 4 of them. It will group them into two groups of close
+% together points, and calculate their position in the frame, the
+% orientation of their angle with repect to the horizon, and trajectory
+% from one frame to the next.
+%
+% Location is defined as an output of each of the points, and is the first
+% column of output.
+%
+% Orientation is defined and the angle of the line segment, connecting the
+% two points in each group of close together points. This is output in
+% degrees, and is calculated using a tangent function.
+%
+% Trajectory is defined as the vector for each point between its location
+% in the prior frame, to the current frame. The first data point will be
+% missing, as there is no prior point. The vector is output as an array
+% with value 1 representing the direction angle, and value 2 representing
+% the magnitude. If there is no change from the previous frame, the angle
+% will be NaN and the magnitude will be 0.
+% 
+%
+% Input:
+%   (in)        a file or directory to search in
+%   (varargin)  a list of of any length of default variable overwrites
+%
+% Output:
+%   (out)       a cell array with colum 1 for points, column 2 for
+%               orientations, and column 3 for trajectories.
+%
+%
+%
+
+%% Variables Declared
+ 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% Title Block
+% 
 %% Variables
 
 red_limit   = 200;
@@ -20,6 +69,7 @@ circle_size = [5,35];
 
 frames_to_skip=0;
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Input Sterilization
 
   if nargin < 1
@@ -81,7 +131,7 @@ function out = videoread(in,frames_to_skip,red_limit,dark_limit,circle_size)
     
     points=cell(total_frames,2);
     orientations=cell(total_frames,1);
-    trajectories=cell(total_frames-1,1);
+    trajectories=cell(total_frames-1,2);
     
     framenumber=0;
     
@@ -108,7 +158,7 @@ function out = videoread(in,frames_to_skip,red_limit,dark_limit,circle_size)
         if toomany
             points(framenumber,1:4)={'TOO MANY POINTS'};
             orientations(framenumber)={'TOO MANY POINTS'};
-            trajectories{framenumber}='TOO MANY POINTS';
+            trajectories(framenumber,:)={'TOO MANY POINTS'};
         else
             if any(~missing)
                 %If any points are found
@@ -137,24 +187,26 @@ function out = videoread(in,frames_to_skip,red_limit,dark_limit,circle_size)
                         lastpoint=points(framenumber-1,:);
                         if any(strcmpi(lastpoint,'MISSING'))
                             %skip traj
-                            trajectories{framenumber} = 'MISSING';
+                            trajectories(framenumber,:) = {'MISSING'};
                         elseif any(strcmpi(lastpoint,'TOO MANY POINTS'))
                             %skip traj
-                            trajectories{framenumber} = 'TOO MANY POINTS';
+                            trajectories(framenumber,:) = {'TOO MANY POINTS'};
                         else
                             %Find trajectory
                             movement1=[point{2};lastpoint{2}];
                             movement2=[point{4};lastpoint{4}];
                             move1=diff(movement1);
                             traj1=(360./(2.*pi)).*tan(move1(1)./move1(2));
+                            mag1=((move1(1).^2)+(move1(2).^2)).^0.5;
                             move2=diff(movement2);
                             traj2=(360./(2.*pi)).*tan(move2(1)./move2(2));
-
-                            trajectories{framenumber}=[traj1,traj2];
+                            mag2=((move2(1).^2)+(move2(2).^2)).^0.5;
+                            trajectories{framenumber,1}=[traj1,mag1];
+                            trajectories{framenumber,2}=[traj2,mag2];
                         end
                     else
 
-                            trajectories{framenumber} = 'MISSING';
+                            trajectories(framenumber,:) = {'MISSING'};
 
                     end
                 end
