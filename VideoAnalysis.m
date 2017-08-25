@@ -48,10 +48,11 @@ function [ out ] = VideoAnalysis ( in , varargin )
 %   (varargin)  a list of of any length of default variable overwrites
 %
 % Output:
-%   (out)       a cell array with colum 1 for points, column 2 for
-%               orientations, and column 3 for trajectories.
-%
-%
+%   (out)       a cell array with the output data. If multiple files are
+%               found in the directory, it only shows the last file.
+%   (~)         an excel spreadsheet is produced for each valid mp4 file
+%               found.
+%   
 %
 
 %% Variables Declared
@@ -71,6 +72,7 @@ frames_to_skip=0;
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Input Sterilization
+
 
   if nargin < 1
     %Query for directory or file.
@@ -101,12 +103,25 @@ frames_to_skip=0;
   end
   
   %Determine if file or directory
-  [~,b]=strtok(in,'.');
+  [file_directory,b]=strtok(in,'.');
   
   if isempty(b)
     %input might be a directory
     if isdir(in)
       %input is a directory
+      a=dir(in);
+      for i=1:length(a)-1
+          if a(i).isdir == 0
+              filename=a(i).name;
+              [filetitle,extension]=strtok(filename,'.');
+              if strcmpi(extension,'.mp4')
+                  dataout = videoread(in,frames_to_skip,red_limit,dark_limit,circle_size);
+                  xlswrite([filetitle,'.xlsx'],dataout);
+                  
+              end
+              
+          end
+      end
       
     else
       %error, invalid directory
@@ -115,9 +130,12 @@ frames_to_skip=0;
   else
     %input is a filename
     dataout = videoread(in,frames_to_skip,red_limit,dark_limit,circle_size);
-  
+    xlswrite([file_directory,'.xlsx'],dataout);
   end
-out = dataout;
+out=dataout;
+
+
+
 end
 
 %% Sub functions
@@ -129,9 +147,9 @@ function out = videoread(in,frames_to_skip,red_limit,dark_limit,circle_size)
     v = VideoReader(in);
     total_frames=ceil(v.Duration.*v.FrameRate./(frames_to_skip+1))-1;
     
-    points=cell(total_frames,2);
-    orientations=cell(total_frames,1);
-    trajectories=cell(total_frames-1,2);
+    points=cell(total_frames,8);
+    orientations=cell(total_frames,2);
+    trajectories=cell(total_frames-1,4);
     
     framenumber=0;
     
@@ -153,17 +171,19 @@ function out = videoread(in,frames_to_skip,red_limit,dark_limit,circle_size)
         point = findcirclepoints (img, red_limit, dark_limit, circle_size);
         toomany=strcmpi(point,'TOO MANY POINTS');
         missing=strcmpi(point,'MISSING');
-        points(framenumber,1:4)={'MISSING'};
-        orientations(framenumber,1)={'MISSING'};
+        points(framenumber,:)={'MISSING'};
+        orientations(framenumber,:)={'MISSING'};
         if toomany
-            points(framenumber,1:4)={'TOO MANY POINTS'};
-            orientations(framenumber)={'TOO MANY POINTS'};
+            points(framenumber,:)={'TOO MANY POINTS'};
+            orientations(framenumber,:)={'TOO MANY POINTS'};
             trajectories(framenumber,:)={'TOO MANY POINTS'};
         else
             if any(~missing)
                 %If any points are found
-                for ndx = 1:4-sum(missing)
-                    points(framenumber,ndx)=point(ndx);
+                for ndx = 1:(4-sum(missing))
+                    spot=point{ndx};
+                    points(framenumber,2*ndx-1)={spot(1)};
+                    points(framenumber,(2*ndx))={spot(2)};
                 end
                 if any(missing)
                     %if any points are missing
@@ -179,12 +199,19 @@ function out = videoread(in,frames_to_skip,red_limit,dark_limit,circle_size)
                     distances(2,:)=[];
                     orientation=(360./(2.*pi)).*tan(distances(:,1)./distances(:,2));
                     
-                    orientations(framenumber)={orientation(1:2)};
-
+                    orientations(framenumber,1)={orientation(1)};
+                    orientations(framenumber,2)={orientation(2)};
 
                     if framenumber>1
                         %make array of last point
                         lastpoint=points(framenumber-1,:);
+                        lastpoint={[lastpoint{1:2}],[lastpoint{3:4}],[lastpoint{5:6}],[lastpoint{7:8}]};
+                        if ischar(lastpoint{end})
+                            for j=1:4
+                                halfme=lastpoint{j};
+                                lastpoint{j}=halfme(1:end/2);
+                            end
+                        end
                         if any(strcmpi(lastpoint,'MISSING'))
                             %skip traj
                             trajectories(framenumber,:) = {'MISSING'};
@@ -201,8 +228,10 @@ function out = videoread(in,frames_to_skip,red_limit,dark_limit,circle_size)
                             move2=diff(movement2);
                             traj2=(360./(2.*pi)).*tan(move2(1)./move2(2));
                             mag2=((move2(1).^2)+(move2(2).^2)).^0.5;
-                            trajectories{framenumber,1}=[traj1,mag1];
-                            trajectories{framenumber,2}=[traj2,mag2];
+                            trajectories{framenumber,1}=traj1;
+                            trajectories{framenumber,2}=mag1;
+                            trajectories{framenumber,3}=traj2;
+                            trajectories{framenumber,4}=mag2;
                         end
                     else
 
@@ -213,7 +242,14 @@ function out = videoread(in,frames_to_skip,red_limit,dark_limit,circle_size)
             end
         end
     end
-    out = {points, orientations, trajectories};
+
+    framelist=cell(total_frames,1);
+    for k=1:total_frames
+        framelist{k}=k;
+    end
+    almostout = [framelist,points, orientations, trajectories];
+    titles={'Frame Number','Point 1 X','Point 1 Y','Point 2 X','Point 2 Y','Point 3 X','Point 3 Y','Point 4 X','Point 4 Y','Orientation 1','Orientation 2','Trajectory 1 Angle','Trajectory 1 Magnitude','Trajectory 2 Angle','Trajectory 2 Magnitude'};
+    out=[titles;almostout];
 end
 %% Find Circle Points
 function point = findcirclepoints (img, red_limit, dark_limit, circle_size)
