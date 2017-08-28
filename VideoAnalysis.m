@@ -54,13 +54,7 @@ function [ out ] = VideoAnalysis ( in , varargin )
 %               found.
 %   
 %
-
-%% Variables Declared
- 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-%% Title Block
-% 
 %% Variables
 
 red_limit   = 200;
@@ -69,6 +63,8 @@ dark_limit  = 150;
 circle_size = [5,35];
 
 frames_to_skip=0;
+
+visual=0;
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Input Sterilization
@@ -96,6 +92,8 @@ frames_to_skip=0;
               
               case 'dark limit'
                   dark_limit = varargin{ins+1};
+              case 'video on'
+                  visual = 1;
                   
               %Add more cases as needed
           end
@@ -129,7 +127,7 @@ frames_to_skip=0;
     end
   else
     %input is a filename
-    dataout = videoread(in,frames_to_skip,red_limit,dark_limit,circle_size);
+    dataout = videoread(in,frames_to_skip,red_limit,dark_limit,circle_size,visual);
     xlswrite([file_directory,'.xlsx'],dataout);
   end
 out=dataout;
@@ -141,7 +139,7 @@ end
 %% Sub functions
 
 %% Video reader
-function out = videoread(in,frames_to_skip,red_limit,dark_limit,circle_size)
+function out = videoread(in,frames_to_skip,red_limit,dark_limit,circle_size,visual)
 
 
     v = VideoReader(in);
@@ -241,6 +239,34 @@ function out = videoread(in,frames_to_skip,red_limit,dark_limit,circle_size)
                 end
             end
         end
+        
+        if visual
+            imshow(img)
+            hold on
+            
+            if any(~missing)
+                %if any are found
+                
+                if any(toomany) || any(missing)
+                    %if there are too many or some are missing
+                    
+                    %[number_of_points,~]=size(point);
+                    
+                    %for p=1:number_of_points
+                    %    plot(point{p}(1),point{p}(2),'r*');
+                    %end
+                else
+            
+                    plot([point{1}(1),point{2}(1)],[point{1}(2),point{2}(2)],'r*-')
+                    plot([point{3}(1),point{4}(1)],[point{3}(2),point{4}(2)],'r*-')
+            
+            
+            
+                end
+            end
+            hold off
+        end
+        
     end
 
     framelist=cell(total_frames,1);
