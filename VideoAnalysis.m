@@ -66,6 +66,8 @@ frames_to_skip=0;
 
 visual=0;
 
+croptop = 0;
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Input Sterilization
 
@@ -94,6 +96,8 @@ visual=0;
                   dark_limit = varargin{ins+1};
               case 'video on'
                   visual = 1;
+              case 'crop top'
+                  croptop = varargin{ins+1};
                   
               %Add more cases as needed
           end
@@ -113,7 +117,7 @@ visual=0;
               filename=a(i).name;
               [filetitle,extension]=strtok(filename,'.');
               if strcmpi(extension,'.mp4')
-                  dataout = videoread(in,frames_to_skip,red_limit,dark_limit,circle_size);
+                  dataout = videoread(in,frames_to_skip,red_limit,dark_limit,circle_size,croptop);
                   xlswrite([filetitle,'.xlsx'],dataout);
                   
               end
@@ -127,9 +131,11 @@ visual=0;
     end
   else
     %input is a filename
-    dataout = videoread(in,frames_to_skip,red_limit,dark_limit,circle_size,visual);
+    dataout = videoread(in,frames_to_skip,red_limit,dark_limit,circle_size,visual,croptop);
     xlswrite([file_directory,'.xlsx'],dataout);
+    
   end
+
 out=dataout;
 
 
@@ -139,7 +145,7 @@ end
 %% Sub functions
 
 %% Video reader
-function out = videoread(in,frames_to_skip,red_limit,dark_limit,circle_size,visual)
+function out = videoread(in,frames_to_skip,red_limit,dark_limit,circle_size,visual,croptop)
 
 
     v = VideoReader(in);
@@ -148,6 +154,8 @@ function out = videoread(in,frames_to_skip,red_limit,dark_limit,circle_size,visu
     points=cell(total_frames,8);
     orientations=cell(total_frames,2);
     trajectories=cell(total_frames-1,4);
+    %video=cell(total_frames,1);
+    video=[];
     
     framenumber=0;
     
@@ -166,7 +174,7 @@ function out = videoread(in,frames_to_skip,red_limit,dark_limit,circle_size,visu
         
         %% Do the image processing
         
-        point = findcirclepoints (img, red_limit, dark_limit, circle_size);
+        point = findcirclepoints (img, red_limit, dark_limit, circle_size,croptop);
         toomany=strcmpi(point,'TOO MANY POINTS');
         missing=strcmpi(point,'MISSING');
         points(framenumber,:)={'MISSING'};
@@ -257,14 +265,15 @@ function out = videoread(in,frames_to_skip,red_limit,dark_limit,circle_size,visu
                     %end
                 else
             
-                    plot([point{1}(1),point{2}(1)],[point{1}(2),point{2}(2)],'r*-')
-                    plot([point{3}(1),point{4}(1)],[point{3}(2),point{4}(2)],'r*-')
-            
+                    plot([point{1}(1),point{2}(1)],[point{1}(2)+croptop,point{2}(2)+croptop],'r*-')
+                    plot([point{3}(1),point{4}(1)],[point{3}(2)+croptop,point{4}(2)+croptop],'r*-')
             
             
                 end
             end
             hold off
+            tempvid=getframe;
+            video=cat(4,video,tempvid.cdata);
         end
         
     end
@@ -276,13 +285,18 @@ function out = videoread(in,frames_to_skip,red_limit,dark_limit,circle_size,visu
     almostout = [framelist,points, orientations, trajectories];
     titles={'Frame Number','Point 1 X','Point 1 Y','Point 2 X','Point 2 Y','Point 3 X','Point 3 Y','Point 4 X','Point 4 Y','Orientation 1','Orientation 2','Trajectory 1 Angle','Trajectory 1 Magnitude','Trajectory 2 Angle','Trajectory 2 Magnitude'};
     out=[titles;almostout];
+    
+    if visual
+        implay(video);
+    end
+    
 end
 %% Find Circle Points
-function point = findcirclepoints (img, red_limit, dark_limit, circle_size)
+function point = findcirclepoints (img, red_limit, dark_limit, circle_size, croptop)
 % Find circle points 
 
 %Temp crop
-img = img(100:end,:,:);
+img = img(croptop+1:end,:,:);
 
  %split image
         r=img(:,:,1);g=img(:,:,2);b=img(:,:,3);
